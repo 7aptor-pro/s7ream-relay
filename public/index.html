@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>S7Ream - Live Screen Stream</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100vw; height: 100vh; margin: 0; padding: 0;
+            background-color: #000000; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #streamImg { width: 100vw; height: 100vh; object-fit: contain; display: block; }
+        .placeholder { color: #94a3b8; font-size: 16px; text-align: center; }
+        .controls-overlay {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 30px;
+            padding: 8px 18px; display: flex; align-items: center; gap: 16px;
+            color: #f8fafc; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: opacity 0.3s; z-index: 9999;
+        }
+        .controls-overlay.hidden { opacity: 0; visibility: hidden; }
+        .live-tag { display: flex; align-items: center; gap: 6px; font-weight: 700; color: #38bdf8; }
+        .live-dot { width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; }
+        .fs-btn { background: #38bdf8; color: #0f172a; border: none; padding: 6px 14px; border-radius: 20px; font-weight: 600; cursor: pointer; }
+    </style>
+</head>
+<body onclick="showControls()">
+    <img id="streamImg" style="display: none;" />
+    <div id="placeholder" class="placeholder">Waiting for S7Ream broadcast...</div>
+
+    <div class="controls-overlay" id="controls">
+        <div class="live-tag">
+            <div class="live-dot"></div>
+            <span id="statusText">Connecting...</span>
+        </div>
+        <button class="fs-btn" onclick="toggleFullscreen(event)">Full Screen</button>
+    </div>
+
+    <script>
+        const img = document.getElementById('streamImg');
+        const placeholder = document.getElementById('placeholder');
+        const statusText = document.getElementById('statusText');
+        const controls = document.getElementById('controls');
+        let hideTimeout;
+
+        function connect() {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${location.host}/viewer`;
+            const ws = new WebSocket(wsUrl);
+            ws.binaryType = 'blob';
+
+            ws.onopen = () => { statusText.innerText = 'Connected - Waiting Stream'; };
+            ws.onmessage = (event) => {
+                img.src = URL.createObjectURL(event.data);
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+                statusText.innerText = 'S7Ream HD Live';
+            };
+            ws.onclose = () => {
+                statusText.innerText = 'Disconnected - Reconnecting...';
+                img.style.display = 'none';
+                placeholder.style.display = 'block';
+                setTimeout(connect, 2000);
+            };
+        }
+
+        function showControls() {
+            controls.classList.remove('hidden');
+            clearTimeout(hideTimeout);
+            hideTimeout = setTimeout(() => controls.classList.add('hidden'), 3000);
+        }
+
+        document.addEventListener('mousemove', showControls);
+        showControls();
+
+        function toggleFullscreen(e) {
+            if (e) e.stopPropagation();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen?.() || document.documentElement.webkitRequestFullscreen?.();
+            } else {
+                document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+            }
+        }
+
+        img.addEventListener('dblclick', toggleFullscreen);
+        document.addEventListener('keydown', (e) => { if (e.key === 'f' || e.key === 'F') toggleFullscreen(); });
+        connect();
+    </script>
+</body>
+</html>
